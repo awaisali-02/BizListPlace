@@ -1,0 +1,74 @@
+import { Schema, model, Document } from 'mongoose';
+import bcrypt from 'bcryptjs';
+import { USER_ROLES, UserRole } from '@bizpockethub/shared';
+
+export interface IUserDocument extends Document {
+  name: string;
+  email: string;
+  passwordHash?: string;
+  role: UserRole;
+  accountStatus: 'active' | 'suspended';
+  emailVerifiedAt: Date | null;
+  resetPasswordToken?: string | null;
+  resetPasswordExpires?: Date | null;
+  comparePassword(candidate: string): Promise<boolean>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const UserSchema = new Schema<IUserDocument>(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 80,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
+    passwordHash: {
+      type: String,
+      select: false, // Do not return in default queries
+    },
+    role: {
+      type: String,
+      enum: USER_ROLES,
+      default: 'user',
+      index: true,
+    },
+    accountStatus: {
+      type: String,
+      enum: ['active', 'suspended'],
+      default: 'active',
+      index: true,
+    },
+    emailVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+UserSchema.methods.comparePassword = async function (candidate: string): Promise<boolean> {
+  if (!this.passwordHash) return false;
+  return bcrypt.compare(candidate, this.passwordHash);
+};
+
+export const User = model<IUserDocument>('User', UserSchema);
